@@ -1,0 +1,486 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  PENDING
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  LATE
+  EXCUSED
+}
+
+enum ExamStatus {
+  DRAFT
+  SCHEDULED
+  COMPLETED
+  PUBLISHED
+}
+
+enum MarkStatus {
+  DRAFT
+  SUBMITTED
+  APPROVED
+}
+
+enum InvoiceStatus {
+  DRAFT
+  ISSUED
+  PARTIAL
+  PAID
+  OVERDUE
+}
+
+enum PaymentMethod {
+  CASH
+  BANK
+  MOBILE
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  name         String
+  email        String        @unique
+  phone        String?
+  passwordHash String
+  status       UserStatus    @default(ACTIVE)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  roles             UserRole[]
+  staff             Staff? @relation("UserStaff")
+  auditLogs         AuditLog[]
+  announcements     Announcement[] @relation("AnnouncementCreator")
+  messagesSent      Message[]      @relation("MessageSender")
+  messagesReceived  Message[]      @relation("MessageRecipient")
+  notifications     Notification[]
+}
+
+model Role {
+  id           Int              @id @default(autoincrement())
+  name         String           @unique
+  permissions  RolePermission[]
+  users        UserRole[]
+  createdAt    DateTime         @default(now())
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+}
+
+model RolePermission {
+  id            Int         @id @default(autoincrement())
+  role          Role        @relation(fields: [roleId], references: [id])
+  roleId        Int
+  permission    Permission  @relation(fields: [permissionId], references: [id])
+  permissionId  Int
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id       Int   @id @default(autoincrement())
+  user     User  @relation(fields: [userId], references: [id])
+  userId   Int
+  role     Role  @relation(fields: [roleId], references: [id])
+  roleId   Int
+
+  @@unique([userId, roleId])
+}
+
+model AcademicYear {
+  id          Int       @id @default(autoincrement())
+  name        String
+  startDate   DateTime
+  endDate     DateTime
+  active      Boolean   @default(false)
+  terms       Term[]
+  enrollments Enrollment[]
+}
+
+model Term {
+  id              Int            @id @default(autoincrement())
+  academicYear    AcademicYear   @relation(fields: [academicYearId], references: [id])
+  academicYearId  Int
+  name            String
+  startDate       DateTime
+  endDate         DateTime
+  active          Boolean        @default(false)
+  timetables      Timetable[]
+  exams           Exam[]
+  enrollments     Enrollment[]
+  feePlans        FeePlan[]
+  invoices        Invoice[]
+  reportCards     ReportCard[]
+  discounts       Discount[]
+}
+
+model Class {
+  id            Int             @id @default(autoincrement())
+  name          String
+  level         String?
+  branch        String?
+  sections      Section[]
+  classSubjects ClassSubject[]
+  timetables    Timetable[]
+  enrollments   Enrollment[]
+  feePlans      FeePlan[]
+  attendanceSessions AttendanceSession[]
+  examSubjects  ExamSubject[]
+}
+
+model Section {
+  id              Int                @id @default(autoincrement())
+  class           Class              @relation(fields: [classId], references: [id])
+  classId         Int
+  name            String
+  enrollments     Enrollment[]
+  attendanceLogs  AttendanceSession[]
+}
+
+model Subject {
+  id            Int             @id @default(autoincrement())
+  name          String
+  code          String          @unique
+  department    String?
+  classSubjects ClassSubject[]
+  examSubjects  ExamSubject[]
+  timetableSlots TimetableSlot[]
+}
+
+model ClassSubject {
+  id        Int    @id @default(autoincrement())
+  class     Class  @relation(fields: [classId], references: [id])
+  classId   Int
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  subjectId Int
+  teacher   Staff?  @relation(fields: [teacherId], references: [id])
+  teacherId Int?
+
+  @@unique([classId, subjectId])
+}
+
+model Room {
+  id             Int             @id @default(autoincrement())
+  name           String          @unique
+  capacity       Int?
+  timetableSlots TimetableSlot[]
+}
+
+model Timetable {
+  id        Int    @id @default(autoincrement())
+  term      Term   @relation(fields: [termId], references: [id])
+  termId    Int
+  class     Class  @relation(fields: [classId], references: [id])
+  classId   Int
+  slots     TimetableSlot[]
+}
+
+model TimetableSlot {
+  id           Int        @id @default(autoincrement())
+  timetable    Timetable  @relation(fields: [timetableId], references: [id])
+  timetableId  Int
+  dayOfWeek    Int
+  period       Int
+  subject      Subject    @relation(fields: [subjectId], references: [id])
+  subjectId    Int
+  teacher      Staff?     @relation("SlotTeacher", fields: [teacherId], references: [id])
+  teacherId    Int?
+  room         Room?      @relation(fields: [roomId], references: [id])
+  roomId       Int?
+  startTime    DateTime?
+  endTime      DateTime?
+}
+
+model Student {
+  id                Int                @id @default(autoincrement())
+  studentCode       String             @unique
+  firstName         String
+  lastName          String
+  gender            String
+  dob               DateTime?
+  address           String?
+  photoUrl          String?
+  status            String             @default("active")
+  enrollments       Enrollment[]
+  guardians         StudentGuardian[]
+  attendanceRecords AttendanceRecord[]
+  marks             Mark[]
+  reportCards       ReportCard[]
+  invoices          Invoice[]
+  discounts         Discount[]
+}
+
+model Guardian {
+  id         Int               @id @default(autoincrement())
+  name       String
+  phone      String
+  email      String?
+  address    String?
+  students   StudentGuardian[]
+}
+
+model StudentGuardian {
+  id         Int      @id @default(autoincrement())
+  student    Student  @relation(fields: [studentId], references: [id])
+  studentId  Int
+  guardian   Guardian @relation(fields: [guardianId], references: [id])
+  guardianId Int
+  relation   String
+
+  @@unique([studentId, guardianId])
+}
+
+model Enrollment {
+  id             Int          @id @default(autoincrement())
+  student        Student      @relation(fields: [studentId], references: [id])
+  studentId      Int
+  academicYear   AcademicYear @relation(fields: [academicYearId], references: [id])
+  academicYearId Int
+  term           Term?        @relation(fields: [termId], references: [id])
+  termId         Int?
+  class          Class        @relation(fields: [classId], references: [id])
+  classId        Int
+  section        Section?     @relation(fields: [sectionId], references: [id])
+  sectionId      Int?
+  rollNo         String?
+  createdAt      DateTime     @default(now())
+}
+
+model Staff {
+  id                Int             @id @default(autoincrement())
+  staffCode         String          @unique
+  user              User            @relation("UserStaff", fields: [userId], references: [id])
+  userId            Int             @unique
+  department        String?
+  position          String?
+  joinDate          DateTime?
+  teacherProfile    TeacherProfile?
+  classSubjects     ClassSubject[]
+  timetableSlots    TimetableSlot[] @relation("SlotTeacher")
+  attendanceTaken   AttendanceSession[] @relation("AttendanceTakenBy")
+  gradedMarks       Mark[]          @relation("MarkGrader")
+  approvedMarks     Mark[]          @relation("MarkApproval")
+  paymentsReceived  Payment[]       @relation("PaymentReceivedBy")
+}
+
+model TeacherProfile {
+  id         Int    @id @default(autoincrement())
+  staff      Staff  @relation(fields: [staffId], references: [id])
+  staffId    Int    @unique
+  specialization String?
+}
+
+model AttendanceSession {
+  id          Int               @id @default(autoincrement())
+  date        DateTime
+  class       Class             @relation(fields: [classId], references: [id])
+  classId     Int
+  section     Section?          @relation(fields: [sectionId], references: [id])
+  sectionId   Int?
+  takenBy     Staff?            @relation("AttendanceTakenBy", fields: [takenById], references: [id])
+  takenById   Int?
+  records     AttendanceRecord[]
+  createdAt   DateTime          @default(now())
+}
+
+model AttendanceRecord {
+  id         Int               @id @default(autoincrement())
+  session    AttendanceSession @relation(fields: [sessionId], references: [id])
+  sessionId  Int
+  student    Student           @relation(fields: [studentId], references: [id])
+  studentId  Int
+  status     AttendanceStatus
+  note       String?
+  createdAt  DateTime          @default(now())
+
+  @@unique([sessionId, studentId])
+}
+
+model Exam {
+  id          Int           @id @default(autoincrement())
+  term        Term          @relation(fields: [termId], references: [id])
+  termId      Int
+  name        String
+  status      ExamStatus    @default(DRAFT)
+  date        DateTime?
+  subjects    ExamSubject[]
+}
+
+model ExamSubject {
+  id        Int    @id @default(autoincrement())
+  exam      Exam   @relation(fields: [examId], references: [id])
+  examId    Int
+  subject   Subject @relation(fields: [subjectId], references: [id])
+  subjectId Int
+  class     Class   @relation(fields: [classId], references: [id])
+  classId   Int
+  maxMarks  Int
+  passMarks Int
+  marks     Mark[]
+
+  @@unique([examId, subjectId, classId])
+}
+
+model Mark {
+  id            Int         @id @default(autoincrement())
+  examSubject   ExamSubject @relation(fields: [examSubjectId], references: [id])
+  examSubjectId Int
+  student       Student     @relation(fields: [studentId], references: [id])
+  studentId     Int
+  marksObtained Float
+  gradedBy      Staff?      @relation("MarkGrader", fields: [gradedById], references: [id])
+  gradedById    Int?
+  approvedBy    Staff?      @relation("MarkApproval", fields: [approvedById], references: [id])
+  approvedById  Int?
+  status        MarkStatus  @default(DRAFT)
+  createdAt     DateTime    @default(now())
+
+  @@unique([examSubjectId, studentId])
+}
+
+model GradingScale {
+  id    Int                @id @default(autoincrement())
+  name  String
+  items GradingScaleItem[]
+}
+
+model GradingScaleItem {
+  id             Int           @id @default(autoincrement())
+  gradingScale   GradingScale  @relation(fields: [gradingScaleId], references: [id])
+  gradingScaleId Int
+  minPercent     Int
+  maxPercent     Int
+  grade          String
+  points         Float?
+}
+
+model ReportCard {
+  id          Int       @id @default(autoincrement())
+  student     Student   @relation(fields: [studentId], references: [id])
+  studentId   Int
+  term        Term      @relation(fields: [termId], references: [id])
+  termId      Int
+  generatedAt DateTime  @default(now())
+  published   Boolean   @default(false)
+}
+
+model FeePlan {
+  id        Int       @id @default(autoincrement())
+  term      Term      @relation(fields: [termId], references: [id])
+  termId    Int
+  class     Class     @relation(fields: [classId], references: [id])
+  classId   Int
+  name      String
+  items     FeePlanItem[]
+}
+
+model FeePlanItem {
+  id        Int      @id @default(autoincrement())
+  feePlan   FeePlan  @relation(fields: [feePlanId], references: [id])
+  feePlanId Int
+  title     String
+  amount    Decimal  @db.Decimal(10, 2)
+}
+
+model Invoice {
+  id        Int        @id @default(autoincrement())
+  student   Student    @relation(fields: [studentId], references: [id])
+  studentId Int
+  term      Term       @relation(fields: [termId], references: [id])
+  termId    Int
+  invoiceNo String     @unique
+  total     Decimal    @db.Decimal(10, 2)
+  status    InvoiceStatus @default(DRAFT)
+  dueDate   DateTime?
+  items     InvoiceItem[]
+  payments  Payment[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model InvoiceItem {
+  id        Int      @id @default(autoincrement())
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id])
+  invoiceId Int
+  title     String
+  amount    Decimal  @db.Decimal(10, 2)
+}
+
+model Payment {
+  id          Int           @id @default(autoincrement())
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id])
+  invoiceId   Int
+  amount      Decimal       @db.Decimal(10, 2)
+  method      PaymentMethod
+  reference   String?
+  paidAt      DateTime      @default(now())
+  receivedBy  Staff?        @relation("PaymentReceivedBy", fields: [receivedById], references: [id])
+  receivedById Int?
+}
+
+model Discount {
+  id        Int      @id @default(autoincrement())
+  student   Student  @relation(fields: [studentId], references: [id])
+  studentId Int
+  term      Term     @relation(fields: [termId], references: [id])
+  termId    Int
+  amount    Decimal  @db.Decimal(10, 2)
+  reason    String?
+}
+
+model Announcement {
+  id          Int       @id @default(autoincrement())
+  title       String
+  content     String
+  audienceType String
+  audienceId  Int?
+  createdBy   User      @relation("AnnouncementCreator", fields: [createdById], references: [id])
+  createdById Int
+  createdAt   DateTime  @default(now())
+}
+
+model Message {
+  id          Int      @id @default(autoincrement())
+  fromUser    User     @relation("MessageSender", fields: [fromUserId], references: [id])
+  fromUserId  Int
+  toUser      User     @relation("MessageRecipient", fields: [toUserId], references: [id])
+  toUserId    Int
+  body        String
+  createdAt   DateTime @default(now())
+}
+
+model Notification {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  title     String
+  body      String
+  readAt    DateTime?
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  user       User?    @relation(fields: [userId], references: [id])
+  userId     Int?
+  action     String
+  entity     String
+  entityId   String?
+  metadataJson Json?
+  createdAt  DateTime @default(now())
+  ip         String?
+}
