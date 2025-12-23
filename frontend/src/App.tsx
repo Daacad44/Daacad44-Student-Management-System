@@ -293,41 +293,7 @@ const RealDashboardPage = () => {
   );
 };
 
-const DashboardPage = () => {
-  const stats = [
-    { title: "Total Students", value: "1,248", subtitle: "+12 this month", tone: "brand" as const },
-    { title: "Total Staff", value: "89", subtitle: "+2 this month", tone: "green" as const },
-    { title: "Today's Attendance", value: "91%", subtitle: "-2% vs yesterday", tone: "orange" as const },
-    { title: "Fee Collection", value: "$45,230", subtitle: "+18% this month", tone: "slate" as const },
-  ];
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <p className="text-lg font-semibold text-slate-900">Dashboard</p>
-        <p className="text-sm text-slate-500">Welcome back! Here&apos;s what&apos;s happening today.</p>
-      </div>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {stats.map((card) => (
-          <StatCard key={card.title} {...card} />
-        ))}
-      </div>
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="lg:col-span-2">
-          <WeeklyAttendance />
-        </div>
-        <FeeCollection
-          totalBilled={125000}
-          collected={90000}
-          pending={35000}
-          paidCount={892}
-          partialCount={234}
-          overdueCount={122}
-        />
-      </div>
-    </div>
-  );
-};
+// (Removed unused DashboardPage — RealDashboardPage is used in routes)
 
 const StudentsPage = () => <StudentFormSection />;
 
@@ -1646,7 +1612,10 @@ const AttendancePage = () => {
     }
     setMessage({ kind: "idle" });
     try {
-      const res = await apiPostAuth<{ data: { id: number } }>("/attendance/sessions", {
+      const res = await apiPostAuth<
+        { date: string; classId: number; sectionId?: number },
+        { data: { id: number } }
+      >("/attendance/sessions", {
         date,
         classId: selectedClassId,
         sectionId: selectedSectionId || undefined,
@@ -2115,12 +2084,7 @@ const ExamsPage = () => {
   );
 };
 
-const PlaceholderPage = ({ title }: { title: string }) => (
-  <div className="rounded-2xl bg-white p-6 shadow-card">
-    <p className="text-lg font-semibold text-slate-900">{title}</p>
-    <p className="text-sm text-slate-500">This section is scaffolded for upcoming functionality.</p>
-  </div>
-);
+// (Removed unused PlaceholderPage component)
 
 const AnnouncementsPage = () => {
   type Announcement = { id: number; title: string; content: string; audienceType?: string; createdAt?: string; createdBy?: { name: string } };

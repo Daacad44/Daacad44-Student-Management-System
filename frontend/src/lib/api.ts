@@ -2,9 +2,9 @@ const baseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:4000/api/
 
 export type ApiError = { message: string; issues?: string[] };
 
-const getAuthHeaders = () => {
+const getAuthHeaders = (): Record<string, string> | undefined => {
   const token = localStorage.getItem("sms_access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  return token ? { Authorization: `Bearer ${token}` } : undefined;
 };
 
 async function handleResponse<T>(res: Response): Promise<T> {
@@ -37,9 +37,7 @@ export async function apiPost<TBody, TResp>(path: string, body: TBody): Promise<
 
 export async function apiGetAuth<TResp>(path: string): Promise<TResp> {
   const res = await fetch(`${baseUrl}${path}`, {
-    headers: {
-      ...getAuthHeaders(),
-    },
+    headers: getAuthHeaders() ? { ...getAuthHeaders() } : undefined,
   });
   return handleResponse<TResp>(res);
 }
@@ -49,7 +47,7 @@ export async function apiPostAuth<TBody, TResp>(path: string, body: TBody): Prom
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
+      ...(getAuthHeaders() || {}),
     },
     body: JSON.stringify(body),
   });
@@ -61,7 +59,7 @@ export async function apiPutAuth<TBody, TResp>(path: string, body: TBody): Promi
     method: "PUT",
     headers: {
       "Content-Type": "application/json",
-      ...getAuthHeaders(),
+      ...(getAuthHeaders() || {}),
     },
     body: JSON.stringify(body),
   });
@@ -71,16 +69,14 @@ export async function apiPutAuth<TBody, TResp>(path: string, body: TBody): Promi
 export async function apiDeleteAuth<TResp>(path: string): Promise<TResp> {
   const res = await fetch(`${baseUrl}${path}`, {
     method: "DELETE",
-    headers: {
-      ...getAuthHeaders(),
-    },
+    headers: getAuthHeaders() ? { ...getAuthHeaders() } : undefined,
   });
   if (res.status === 204) return {} as TResp;
   return handleResponse<TResp>(res);
 }
 
 export async function apiDownload(path: string) {
-  const res = await fetch(`${baseUrl}${path}`, { headers: { ...getAuthHeaders() } });
+  const res = await fetch(`${baseUrl}${path}`, { headers: getAuthHeaders() ? { ...getAuthHeaders() } : undefined });
   if (!res.ok) {
     const message = await res.text();
     throw new Error(message || "Download failed");
